@@ -35,7 +35,7 @@ If I now click on **Firewall > NAT**, it shows the hosts that are designated to 
 
 ![image](https://github.com/user-attachments/assets/be50cdea-d36b-40f9-9f6f-24db262ef564)
 ![image](https://github.com/user-attachments/assets/d9d7c69c-035e-4fb4-858b-951b4605f90b)
-- These rules however create a vulnerability, 
+- Since the hosts on this network are not seperated into different segments, if an attacker is able to gain access to the server than they can pivot onto other hosts.
 
 #
 <h3>Testing Host Security</h3>
@@ -75,14 +75,14 @@ Back on the terminal running msfconsole, the meterpreter shell was successful, a
 Leaving the session in the background to try creating a hash dump, results in failure because I dont have root access.
 ![image](https://github.com/user-attachments/assets/bf494440-2074-445a-a097-4a89287538b6)
 
-Trying a different method also yields no access, however, there is the potential for intrusion against other hosts on the network.
+Trying a different method also yields no access, however, there is the potential for intrusion against other hosts on the same network as the server.
 ![image](https://github.com/user-attachments/assets/89437583-ba17-4b1d-a3e8-df2f3cf1f37f)
-![image](https://github.com/user-attachments/assets/2f825b5b-1164-43e3-8993-94854a90d798)
-![image](https://github.com/user-attachments/assets/101102bf-7b08-4b58-9b74-82efc916252b)
-![image](https://github.com/user-attachments/assets/ca6b314e-88d6-4a1f-aa36-0f7a02e2d551)
 
-The reason there it's possible to gain access to another host on the network is because of the firewall rules. If firewall rules were filtering connections between this server and other hosts, 
-and blocking unauthorized outbound connections, then this would not be possible.
+![image](https://github.com/user-attachments/assets/2f825b5b-1164-43e3-8993-94854a90d798)
+![image](https://github.com/user-attachments/assets/51ce190a-304f-4179-82d2-ae5a05b05dbd)
+
+The reason that it's possible to gain access to another host on the network is because of the firewall rules. There are no rules against certain oubount traffic or connection between the server and other hosts on the same network. 
+If the firewall rules were filtering connections between this server and other hosts, and blocking unauthorized outbound connections, then this would not be possible.
 #
 <h3>Configuring Segmentation</h3>
 
@@ -100,7 +100,7 @@ And I'll do the same for LX1, on the eth0 adapter
 
 ![image](https://github.com/user-attachments/assets/9c084d65-9284-4079-93d0-a980177c841c)
 
-Back on pfSense, Clicking on **Interfaces > Assignments**
+Back on pfSense, clicking on **Interfaces > Assignments**
 ![image](https://github.com/user-attachments/assets/edda3a98-8f04-4080-8122-a25dbbb2bcfd)
 And I added OPT1, which is UTM1's interface connected to the virtual switch (vDMZ)
 ![image](https://github.com/user-attachments/assets/b95b2700-816d-4e64-b19c-9de6bdeab33d)
@@ -110,9 +110,51 @@ Clicking on **Interfaces > OPT1**, I enabled the interface and set the IPv4 addr
 ![image](https://github.com/user-attachments/assets/b0d2478e-d4d2-47f2-8fa0-b935ff3d8794)
 ![image](https://github.com/user-attachments/assets/83159cc6-a7b6-4dae-bc46-dd2506a4015c)
 
-Clicking on **Firewall > NAT**, I'm going to edit the HTTP forwarding rule
+Clicking on **Firewall > NAT**, I'm going to edit the HTTP and HTTPS forwarding rules to redirect traffic to the server @ 10.1.254.10 
 
 ![image](https://github.com/user-attachments/assets/f0c07ae9-a6b1-48f0-9eb4-e56e9e42e891)
-![image](https://github.com/user-attachments/assets/18d0975c-f95c-4ed4-962a-60d3902b7041)
+![image](https://github.com/user-attachments/assets/c88724ec-d65e-4e3b-a871-59872f688ff6)
+![image](https://github.com/user-attachments/assets/7a3724ff-dd69-4889-9f1c-c5c8d8409e74)
+![image](https://github.com/user-attachments/assets/33f1d600-1a2b-4405-b482-1c9701144195)
+
+The I went to **Status > System  Logs Settings** and enabled 'log firewall default blocks'
+![image](https://github.com/user-attachments/assets/2e9eebf6-09e8-40fe-a4d9-cc6ec83b4ccf)
+
+The last thing I need to do is add the server to the DMZ subnet, by reconfiguring it's IP settings
+![image](https://github.com/user-attachments/assets/3e2ca707-4868-490f-8e56-4ff9f44dfedc)
+
+Now that I changed the IP to the server the connection to the attack box has died, so there is no current reverse shell
+![image](https://github.com/user-attachments/assets/5ebf2d36-33d4-4e0a-bbb6-203b72362e80)
+#
+<h3>Testing Segmentation</h3>
+
+If I try to establish another reverse shell (same way as before, starting the listener, and using the curl command to create the reverse shell), it will not work because the ACL rules are configured to apply only to incoming new connections on each interface, so the default block on OPT1 stops the web server from initiating new connections. The ACL rules only allow connections started by external hosts rather than a connection started by the server to an external host (reverse shell).
+
+Checking the firewall logs (**Status > System Logs > Firewall**), we see just that. Any traffic from the server (10.1.254.10) to the attack box (192.168.2.192), is blocked. But traffic from the attack box to the server is not.
+![image](https://github.com/user-attachments/assets/45e04c13-f741-4372-a9c5-9cf2299d1dce)
+![image](https://github.com/user-attachments/assets/0bc78382-f4c1-4bb0-852f-7cf51cdec408)
+
+This is actually a hidden, default deny rule, that blocks any other traffic arriving on the WAN interface from an external network.
+![image](https://github.com/user-attachments/assets/96927429-a1ee-40fd-b75b-77d53edc1318)
+
+Now the server has been successfully isolated from the other hosts on the network.
+#
+<h3>Challenge</h3>
+
+**Configure an ACL that blocks hosts on the vLOCAL switch/LAN net from accessing anything other than SSH and HTTP/HTTPS on the vDMZ switch/OPT1 address.**
+
+These are the four rules I made to make this possible. Each one either allows/denies traffic specifically from the LAN net, to the OPT1 address. The deny rule denies all traffic including SSH, HTTP/HTTPS but I put it at the bottom of the list so that it will no trigger before the other allow rules, that way SSH, and HTTP/HTTPS traffic can still pass through.
+![image](https://github.com/user-attachments/assets/8a979a18-06e5-430e-8151-61a98d0a2d0a)
+
+To test whether on not the ACL rules work I first tried accessing http://www.515web.net and http://10.1.254.10 from a VM that was on the LAN net, and both were successfull.
+![image](https://github.com/user-attachments/assets/58fe5c65-ab81-4ef9-9701-b570d8115f83)
+![image](https://github.com/user-attachments/assets/d93681d5-aef6-437d-af7c-c267d8aa5b5b)
+
+Lastly, I switched the Linux VM (attack box), to the LAN net and used nmap to test ports 22, 53, 80, and 443, and since it worked correctly DNS port 53 was shown as filtered and the rest were open.
+
+![image](https://github.com/user-attachments/assets/3b23c180-fd8e-43a7-957d-c0beb5bb080d)
+
+
+
 
 
